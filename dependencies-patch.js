@@ -11,7 +11,7 @@ const patchs = [
   [
     path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
     'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);',
-    'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);\n        MediaSessionTokenHolder.setSessionToken(session.getSessionToken());',
+    'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);\n        android.util.Log.i("LxMediaBrowser", "MetadataManager: storing session token");\n        MediaSessionTokenHolder.setSessionToken(session.getSessionToken());',
   ],
 ]
 
