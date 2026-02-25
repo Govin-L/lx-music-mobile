@@ -27,6 +27,11 @@ react {
     //   If you add flavors like lite, prod, etc. you'll have to list your debuggableVariants.
     // debuggableVariants = ["liteDebug", "prodDebug"]
 
+    // CI 构建时传入 -PbundleForAllVariants=true，强制 debug 也打包 JS bundle
+    if (project.hasProperty('bundleForAllVariants')) {
+        debuggableVariants = []
+    }
+
     /* Bundling */
     //   A list containing the node command and its flags. Default is just 'node'.
     // nodeExecutableAndArgs = ["node"]
