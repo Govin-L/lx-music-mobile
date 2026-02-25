@@ -1,6 +1,5 @@
 package cn.toside.music.mobile.mediabrowser;
 
-import android.content.Intent;
 import android.os.Bundle;
 
 import androidx.annotation.NonNull;
@@ -9,6 +8,8 @@ import androidx.media.MediaBrowserServiceCompat;
 
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.session.MediaSessionCompat;
+
+import com.guichaguri.trackplayer.service.metadata.MediaSessionTokenHolder;
 
 import java.util.Collections;
 import java.util.List;
