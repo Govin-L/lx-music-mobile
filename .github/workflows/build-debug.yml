@@ -18,7 +18,7 @@ jobs:
         shell: bash
         run: |
           cd android
-          ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --parallel
+          ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a --parallel --build-cache -x lint -x lintVitalAnalyzeDebug
 
       - name: Get package version
         run: |
