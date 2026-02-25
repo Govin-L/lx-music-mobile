@@ -1,0 +1,47 @@
+name: Build Debug
+
+on:
+  workflow_dispatch:
+
+jobs:
+  Android:
+    name: Android Debug
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out git repository
+        uses: actions/checkout@v4
+
+      - name: Setup Env
+        uses: ./.github/actions/setup
+
+      - name: Generate debug keystore
+        run: |
+          keytool -genkeypair -v -storetype PKCS12 \
+            -keystore android/app/debug.keystore \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Build Debug APK
+        shell: bash
+        run: |
+          cd android
+          ./gradlew assembleDebug
+
+      - name: Get package version
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          echo "PACKAGE_VERSION=$PACKAGE_VERSION" >> $GITHUB_ENV
+
+      - name: Upload Artifact arm64-v8a
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-v${{ env.PACKAGE_VERSION }}-arm64-v8a
+          path: android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk
+
+      - name: Upload Artifact universal
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-v${{ env.PACKAGE_VERSION }}-universal
+          path: android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-universal.apk

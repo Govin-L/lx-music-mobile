@@ -6,6 +6,13 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const patchs = [
+  // 补丁: 让 track-player 的 MetadataManager 在创建 MediaSession 后将 token 存入 MediaSessionTokenHolder，
+  // 使 LxMediaBrowserService 能获取并暴露给系统（支持 HarmonyOS 卓易通下拉音乐控制）
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
+    'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);',
+    'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);\n        cn.toside.music.mobile.mediabrowser.MediaSessionTokenHolder.setSessionToken(session.getSessionToken());',
+  ],
 ]
 
 ;(async() => {

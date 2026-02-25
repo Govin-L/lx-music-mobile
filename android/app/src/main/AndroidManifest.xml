@@ -91,6 +91,15 @@
         </intent-filter>
       </activity>
 
+      <!-- MediaBrowserService: 让系统（包括 HarmonyOS 卓易通）能发现音乐播放会话 -->
+      <service
+        android:name=".mediabrowser.LxMediaBrowserService"
+        android:exported="true">
+        <intent-filter>
+          <action android:name="android.media.browse.MediaBrowserService" />
+        </intent-filter>
+      </service>
+
       <!-- Define a FileProvider for API24+ -->
       <!-- note this is the authority name used by other modules like rn-fetch-blob, easy to have conflicts -->
       <provider
