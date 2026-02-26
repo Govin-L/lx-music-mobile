@@ -6,6 +6,7 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const metadataManagerPath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java')
+const musicServicePath = path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/MusicService.java')
 
 const patchs = [
   // 补丁 1: 修复 MediaSession flags + 设置 sessionActivity + 存储 token
@@ -51,6 +52,39 @@ const patchs = [
     '// Prevent the media style from being used in older Huawei devices that don\'t support custom styles\n        if(!Build.MANUFACTURER.toLowerCase().contains("huawei") || Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {',
     '// MediaStyle 在所有设备上启用（移除旧华为设备检查，避免卓易通环境误判）\n        if(true) {',
   ],
+
+  // 补丁 4: 将 MusicService 的父类从 HeadlessJsTaskService 改为 HeadlessMediaBrowserService
+  // 核心修复：标准 Android 音乐播放器（如网易云音乐）的主服务继承 MediaBrowserServiceCompat
+  // 卓易通通过 MediaBrowserService 机制发现媒体会话，MusicService 必须本身就是 MediaBrowserServiceCompat
+  [
+    musicServicePath,
+    'extends HeadlessJsTaskService',
+    'extends HeadlessMediaBrowserService',
+  ],
+
+  // 补丁 5: 在 MusicService 创建 MusicManager 后设置 MediaBrowserServiceCompat 的 session token
+  // MusicManager 构造时会创建 MetadataManager → MediaSession，token 存入 MediaSessionTokenHolder
+  // 此处将 token 设置到 MusicService（现在是 MediaBrowserServiceCompat）上，让系统能发现媒体会话
+  [
+    musicServicePath,
+    '        manager = new MusicManager(this);\n        handler = new Handler();\n\n        super.onStartCommand(intent, flags, startId);',
+    [
+      '        manager = new MusicManager(this);',
+      '        handler = new Handler();',
+      '',
+      '        // Set MediaBrowserServiceCompat session token for system media browsers',
+      '        {',
+      '            android.support.v4.media.session.MediaSessionCompat.Token sessionToken =',
+      '                com.guichaguri.trackplayer.service.metadata.MediaSessionTokenHolder.getSessionToken();',
+      '            if (sessionToken != null) {',
+      '                setSessionToken(sessionToken);',
+      '                android.util.Log.i("LxMediaBrowser", "MusicService: setSessionToken on MediaBrowserServiceCompat");',
+      '            }',
+      '        }',
+      '',
+      '        super.onStartCommand(intent, flags, startId);',
+    ].join('\n'),
+  ],
 ]
 
 // 需要创建的新文件（放在 track-player 模块内，避免跨模块引用问题）
@@ -89,6 +123,167 @@ public class MediaSessionTokenHolder {
         if (listener != null && sToken != null) {
             listener.onTokenReady(sToken);
         }
+    }
+}
+`,
+  ],
+  [
+    path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/HeadlessMediaBrowserService.java'),
+    `package com.guichaguri.trackplayer.service;
+
+import android.annotation.SuppressLint;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.PowerManager;
+import android.support.v4.media.MediaBrowserCompat;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import androidx.media.MediaBrowserServiceCompat;
+
+import com.facebook.react.ReactApplication;
+import com.facebook.react.ReactInstanceEventListener;
+import com.facebook.react.ReactInstanceManager;
+import com.facebook.react.ReactNativeHost;
+import com.facebook.react.bridge.ReactContext;
+import com.facebook.react.bridge.UiThreadUtil;
+import com.facebook.react.jstasks.HeadlessJsTaskConfig;
+import com.facebook.react.jstasks.HeadlessJsTaskContext;
+import com.facebook.react.jstasks.HeadlessJsTaskEventListener;
+
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CopyOnWriteArraySet;
+
+/**
+ * Hybrid base class: MediaBrowserServiceCompat + HeadlessJsTaskService functionality.
+ * Allows MusicService to be discoverable by system media browsers (e.g. DroiTong)
+ * while still supporting React Native headless JS tasks.
+ *
+ * Based on React Native 0.73.11 HeadlessJsTaskService (MIT License, Meta Platforms Inc.)
+ */
+public abstract class HeadlessMediaBrowserService extends MediaBrowserServiceCompat
+        implements HeadlessJsTaskEventListener {
+
+    private static final String BROWSER_ROOT_ID = "lx_music_root";
+    private final Set<Integer> mActiveTasks = new CopyOnWriteArraySet<>();
+    private static @Nullable PowerManager.WakeLock sWakeLock;
+
+    // ==================== HeadlessJsTaskService functionality ====================
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        HeadlessJsTaskConfig taskConfig = getTaskConfig(intent);
+        if (taskConfig != null) {
+            startTask(taskConfig);
+            return START_REDELIVER_INTENT;
+        }
+        return START_NOT_STICKY;
+    }
+
+    protected @Nullable HeadlessJsTaskConfig getTaskConfig(Intent intent) {
+        return null;
+    }
+
+    @SuppressLint("WakelockTimeout")
+    public static void acquireWakeLockNow(Context context) {
+        if (sWakeLock == null || !sWakeLock.isHeld()) {
+            PowerManager powerManager =
+                (PowerManager) context.getSystemService(POWER_SERVICE);
+            if (powerManager != null) {
+                sWakeLock = powerManager.newWakeLock(
+                    PowerManager.PARTIAL_WAKE_LOCK,
+                    HeadlessMediaBrowserService.class.getCanonicalName());
+                sWakeLock.setReferenceCounted(false);
+                sWakeLock.acquire();
+            }
+        }
+    }
+
+    protected void startTask(final HeadlessJsTaskConfig taskConfig) {
+        UiThreadUtil.assertOnUiThread();
+        acquireWakeLockNow(this);
+        final ReactInstanceManager reactInstanceManager =
+            getReactNativeHost().getReactInstanceManager();
+        ReactContext reactContext = reactInstanceManager.getCurrentReactContext();
+        if (reactContext == null) {
+            reactInstanceManager.addReactInstanceEventListener(
+                new ReactInstanceEventListener() {
+                    @Override
+                    public void onReactContextInitialized(ReactContext reactContext) {
+                        invokeStartTask(reactContext, taskConfig);
+                        reactInstanceManager.removeReactInstanceEventListener(this);
+                    }
+                });
+            reactInstanceManager.createReactContextInBackground();
+        } else {
+            invokeStartTask(reactContext, taskConfig);
+        }
+    }
+
+    private void invokeStartTask(ReactContext reactContext, final HeadlessJsTaskConfig taskConfig) {
+        final HeadlessJsTaskContext headlessJsTaskContext =
+            HeadlessJsTaskContext.getInstance(reactContext);
+        headlessJsTaskContext.addTaskEventListener(this);
+
+        UiThreadUtil.runOnUiThread(
+            new Runnable() {
+                @Override
+                public void run() {
+                    int taskId = headlessJsTaskContext.startTask(taskConfig);
+                    mActiveTasks.add(taskId);
+                }
+            });
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (getReactNativeHost().hasInstance()) {
+            ReactInstanceManager reactInstanceManager =
+                getReactNativeHost().getReactInstanceManager();
+            ReactContext reactContext = reactInstanceManager.getCurrentReactContext();
+            if (reactContext != null) {
+                HeadlessJsTaskContext headlessJsTaskContext =
+                    HeadlessJsTaskContext.getInstance(reactContext);
+                headlessJsTaskContext.removeTaskEventListener(this);
+            }
+        }
+        if (sWakeLock != null) {
+            sWakeLock.release();
+        }
+    }
+
+    @Override
+    public void onHeadlessJsTaskStart(int taskId) {}
+
+    @Override
+    public void onHeadlessJsTaskFinish(int taskId) {
+        mActiveTasks.remove(taskId);
+        if (mActiveTasks.size() == 0) {
+            stopSelf();
+        }
+    }
+
+    protected ReactNativeHost getReactNativeHost() {
+        return ((ReactApplication) getApplication()).getReactNativeHost();
+    }
+
+    // ==================== MediaBrowserServiceCompat functionality ====================
+
+    @Nullable
+    @Override
+    public BrowserRoot onGetRoot(@NonNull String clientPackageName, int clientUid,
+            @Nullable Bundle rootHints) {
+        return new BrowserRoot(BROWSER_ROOT_ID, null);
+    }
+
+    @Override
+    public void onLoadChildren(@NonNull String parentId,
+            @NonNull Result<List<MediaBrowserCompat.MediaItem>> result) {
+        result.sendResult(Collections.emptyList());
     }
 }
 `,
