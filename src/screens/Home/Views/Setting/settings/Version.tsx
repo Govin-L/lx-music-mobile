@@ -9,23 +9,30 @@ import { sizeFormate } from '@/utils'
 import { useI18n } from '@/lang'
 import { useVersionDownloadProgressUpdated, useVersionInfo } from '@/store/version/hook'
 import Text from '@/components/common/Text'
-import { showModal } from '@/core/version'
+import { checkUpdate, showModal } from '@/core/version'
 
 const currentVer = process.versions.app
 export default memo(() => {
   const t = useI18n()
   const versionInfo = useVersionInfo()
-  // const versionStatus = useVrsionUpdateStatus()
   const [title, setTitle] = useState('')
   const [tip, setTip] = useState('')
   const progress = useVersionDownloadProgressUpdated()
+
+  const handleCheckUpdate = () => {
+    void checkUpdate()
+    showModal()
+  }
+
   const handleOpenVersionModal = () => {
-    // setVersionInfo({ showModal: true })
     showModal()
   }
 
   useEffect(() => {
-    if (versionInfo.isLatest) {
+    if (versionInfo.newVersion == null) {
+      setTitle(t('version_tip_not_checked'))
+      setTip('')
+    } else if (versionInfo.isLatest) {
       setTitle(t('version_tip_latest'))
       setTip('')
     } else if (versionInfo.isUnknown) {
@@ -53,8 +60,6 @@ export default memo(() => {
           setTitle(t('version_title_failed'))
           setTip(t('version_tip_failed'))
           break
-        // case 'idle':
-        //   break
         default:
           setTitle(t('version_title_new'))
           setTip('')
@@ -67,14 +72,23 @@ export default memo(() => {
     <Section title={t('setting_version')}>
       <SubTitle title={title}>
         <View style={styles.desc}>
-          <Text size={14}>{t('version_label_latest_ver')}{versionInfo.newVersion?.version}</Text>
+          {
+            versionInfo.newVersion
+              ? <Text size={14}>{t('version_label_latest_ver')}{versionInfo.newVersion.version}</Text>
+              : null
+          }
           <Text size={14}>{t('version_label_current_ver')}{currentVer}</Text>
           {
             tip ? <Text size={14}>{tip}</Text> : null
           }
         </View>
         <View style={styles.btn}>
-          <Button onPress={handleOpenVersionModal}>{t('setting_version_show_ver_modal')}</Button>
+          <Button onPress={handleCheckUpdate}>{t('version_btn_check_update')}</Button>
+          {
+            versionInfo.newVersion
+              ? <Button onPress={handleOpenVersionModal} style={styles.detailBtn}>{t('setting_version_show_ver_modal')}</Button>
+              : null
+          }
         </View>
       </SubTitle>
     </Section>
@@ -87,5 +101,8 @@ const styles = StyleSheet.create({
   },
   btn: {
     flexDirection: 'row',
+  },
+  detailBtn: {
+    marginLeft: 8,
   },
 })

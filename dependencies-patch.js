@@ -85,6 +85,74 @@ const patchs = [
       '        super.onStartCommand(intent, flags, startId);',
     ].join('\n'),
   ],
+
+  // 补丁 6: 在 MetadataManager 构造函数末尾提前激活 MediaSession
+  // 核心修复：原始代码在构造时不设置 PlaybackState、不激活 session、不应用 MediaStyle
+  // 导致 session 在用户真正播放音乐之前一直处于非活跃状态
+  // 卓易通/系统在服务启动时扫描 MediaSession，如果此时 session 未激活则会被忽略
+  // 网易云音乐等正常播放器会在服务启动时立即激活 session
+  [
+    metadataManagerPath,
+    'builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);',
+    [
+      'builder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);',
+      '        // Early MediaSession activation for system/卓易通 media discovery',
+      '        {',
+      '            PlaybackStateCompat initState = new PlaybackStateCompat.Builder()',
+      '                .setActions(',
+      '                    PlaybackStateCompat.ACTION_PLAY |',
+      '                    PlaybackStateCompat.ACTION_PAUSE |',
+      '                    PlaybackStateCompat.ACTION_STOP |',
+      '                    PlaybackStateCompat.ACTION_SKIP_TO_NEXT |',
+      '                    PlaybackStateCompat.ACTION_SKIP_TO_PREVIOUS |',
+      '                    PlaybackStateCompat.ACTION_SEEK_TO)',
+      '                .setState(PlaybackStateCompat.STATE_NONE, 0, 1f)',
+      '                .build();',
+      '            session.setPlaybackState(initState);',
+      '',
+      '            MediaMetadataCompat initMeta = new MediaMetadataCompat.Builder()',
+      '                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, "LX Music")',
+      '                .putLong(MediaMetadataCompat.METADATA_KEY_DURATION, 0)',
+      '                .build();',
+      '            session.setMetadata(initMeta);',
+      '',
+      '            MediaStyle initStyle = new MediaStyle();',
+      '            initStyle.setMediaSession(session.getSessionToken());',
+      '            builder.setStyle(initStyle);',
+      '',
+      '            session.setActive(true);',
+      '            android.util.Log.i("LxMediaBrowser", "MetadataManager: early session activation with PlaybackState + MediaStyle");',
+      '',
+      '            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {',
+      '                service.startForeground(1, builder.build(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);',
+      '            } else {',
+      '                service.startForeground(1, builder.build());',
+      '            }',
+      '        }',
+    ].join('\n'),
+  ],
+
+  // 补丁 7: 改进 MusicService.onCreate() 的初始通知
+  // 原始代码创建了一个完全空白的通知（无 smallIcon、无 category、无 visibility）
+  // 这在卓易通上可能导致通知被系统忽略或不显示
+  // 改为创建一个最小但合规的媒体通知，并在 API 29+ 显式声明 foregroundServiceType
+  [
+    musicServicePath,
+    'startForeground(1, new NotificationCompat.Builder(this, channel).build());',
+    [
+      '{',
+      '            NotificationCompat.Builder initBuilder = new NotificationCompat.Builder(this, channel);',
+      '            initBuilder.setSmallIcon(com.guichaguri.trackplayer.R.drawable.play);',
+      '            initBuilder.setCategory(NotificationCompat.CATEGORY_TRANSPORT);',
+      '            initBuilder.setVisibility(NotificationCompat.VISIBILITY_PUBLIC);',
+      '            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {',
+      '                startForeground(1, initBuilder.build(), android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);',
+      '            } else {',
+      '                startForeground(1, initBuilder.build());',
+      '            }',
+      '        }',
+    ].join('\n'),
+  ],
 ]
 
 // 需要创建的新文件（放在 track-player 模块内，避免跨模块引用问题）

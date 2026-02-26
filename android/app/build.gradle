@@ -115,7 +115,7 @@ android {
 
     namespace "cn.toside.music.mobile"
     defaultConfig {
-        applicationId "cn.toside.music.mobile"
+        applicationId "com.luna.music"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode verCode
@@ -160,7 +160,7 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
-            applicationIdSuffix ".debug"
+            // applicationIdSuffix ".debug" // 移除后缀，确保包名精确匹配华为白名单 com.luna.music
         }
         release {
             // Caution! In production, you need to generate your own keystore file.

@@ -96,7 +96,13 @@ export const storageDataPrefixOld = {
   notificationTipEnable: '@notification_tip_enable',
 } as const
 
-export const APP_PROVIDER_NAME = 'cn.toside.music.mobile.provider'
+export const APP_PROVIDER_NAME = 'com.luna.music.provider'
+
+export const GITHUB_REPO = {
+  owner: 'Govin-L',
+  name: 'lx-music-mobile',
+  releaseTag: 'debug-latest',
+} as const
 
 
 export const NAV_MENUS = [

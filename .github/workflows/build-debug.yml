@@ -64,3 +64,20 @@ jobs:
         with:
           name: debug-v${{ env.PACKAGE_VERSION }}-arm64-v8a
           path: android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk
+
+      - name: Create/Update Debug Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 删除已有的 debug-latest release（如果存在）
+          gh release delete debug-latest --yes --cleanup-tag 2>/dev/null || true
+          # 创建新的 release 并上传 APK
+          gh release create debug-latest \
+            --title "Debug v${{ env.PACKAGE_VERSION }} (Build #${{ github.run_number }})" \
+            --notes "**自动构建** - Debug Build
+          - 版本: v${{ env.PACKAGE_VERSION }}
+          - 构建号: #${{ github.run_number }}
+          - 架构: arm64-v8a
+          - 时间: $(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
+            --prerelease \
+            "android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk"

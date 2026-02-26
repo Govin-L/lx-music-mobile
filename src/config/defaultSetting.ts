@@ -1,6 +1,6 @@
 const defaultSetting: LX.AppSetting = {
   version: '2.0',
-  'common.isAutoTheme': false,
+  'common.isAutoTheme': true,
   'common.langId': null,
   'common.apiSource': '',
   'common.sourceNameType': 'alias',
@@ -11,14 +11,14 @@ const defaultSetting: LX.AppSetting = {
   'common.homePageScroll': true,
   'common.allowProgressBarSeek': true,
   'common.showBackBtn': false,
-  'common.showExitBtn': true,
+  'common.showExitBtn': false,
   'common.useSystemFileSelector': true,
-  'common.alwaysKeepStatusbarHeight': false,
+  'common.alwaysKeepStatusbarHeight': true,
 
   'player.startupAutoPlay': false,
   'player.startupPushPlayDetailScreen': false,
   'player.togglePlayMethod': 'listLoop',
-  'player.playQuality': '128k',
+  'player.playQuality': '320k',
   'player.isSavePlayTime': false,
   'player.volume': 1,
   'player.playbackRate': 1,
@@ -51,7 +51,7 @@ const defaultSetting: LX.AppSetting = {
   'desktopLyric.position.y': 0,
   'desktopLyric.textPosition.x': 'left',
   'desktopLyric.textPosition.y': 'top',
-  'desktopLyric.style.fontSize': 180,
+  'desktopLyric.style.fontSize': 190,
   'desktopLyric.style.opacity': 100,
   'desktopLyric.style.lyricUnplayColor': 'rgba(255, 255, 255, 1)',
   'desktopLyric.style.lyricPlayedColor': 'rgba(7, 197, 86, 1)',
@@ -78,13 +78,6 @@ const defaultSetting: LX.AppSetting = {
   'theme.hideBgDark': false,
   'theme.dynamicBg': false,
   'theme.fontShadow': false,
-}
-
-
-// 使用新年皮肤
-if (new Date().getMonth() < 2) {
-  defaultSetting['theme.id'] = 'happy_new_year'
-  defaultSetting['desktopLyric.style.lyricPlayedColor'] = 'rgba(255, 18, 34, 1)'
 }
 
 export default defaultSetting

@@ -9,6 +9,7 @@ export interface VersionInfo {
   version: string
   desc: string
   history?: LX.VersionInfo[]
+  downloadUrl?: string
 }
 
 export interface InitState {
@@ -35,7 +36,7 @@ const state: InitState = {
     reCheck: false,
     isUnknown: false,
     isLatest: false,
-    status: 'checking',
+    status: 'idle',
   },
   ignoreVersion: null,
   progress: {
