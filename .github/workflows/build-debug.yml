@@ -14,6 +14,40 @@ jobs:
       - name: Setup Env
         uses: ./.github/actions/setup
 
+      - name: Verify dependencies patch
+        shell: bash
+        run: |
+          METADATA_FILE="node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java"
+          HOLDER_FILE="node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MediaSessionTokenHolder.java"
+
+          echo "=== Checking MediaSessionTokenHolder.java ==="
+          if [ -f "$HOLDER_FILE" ]; then
+            echo "✓ MediaSessionTokenHolder.java exists"
+          else
+            echo "✗ MediaSessionTokenHolder.java NOT found!" && exit 1
+          fi
+
+          echo "=== Checking MetadataManager.java patch ==="
+          if grep -q "FLAG_HANDLES_TRANSPORT_CONTROLS" "$METADATA_FILE"; then
+            echo "✓ FLAG_HANDLES_TRANSPORT_CONTROLS found"
+          else
+            echo "✗ FLAG_HANDLES_TRANSPORT_CONTROLS NOT found - patch failed!" && exit 1
+          fi
+
+          if grep -q "MediaSessionTokenHolder.setSessionToken" "$METADATA_FILE"; then
+            echo "✓ MediaSessionTokenHolder.setSessionToken found"
+          else
+            echo "✗ MediaSessionTokenHolder.setSessionToken NOT found - patch failed!" && exit 1
+          fi
+
+          if grep -q "setSessionActivity" "$METADATA_FILE"; then
+            echo "✓ setSessionActivity found"
+          else
+            echo "✗ setSessionActivity NOT found - patch failed!" && exit 1
+          fi
+
+          echo "=== All patches verified ✓ ==="
+
       - name: Build Debug APK
         shell: bash
         run: |

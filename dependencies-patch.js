@@ -6,12 +6,31 @@ const path = require('node:path')
 const rootPath = path.join(__dirname, './')
 
 const patchs = [
-  // 补丁: 让 track-player 的 MetadataManager 在创建 MediaSession 后将 token 存入 MediaSessionTokenHolder，
-  // 使 LxMediaBrowserService 能获取并暴露给系统（支持 HarmonyOS 卓易通下拉音乐控制）
+  // 补丁 1: 修复 MediaSession flags + 设置 sessionActivity + 存储 token
+  // 原始代码只设了 FLAG_HANDLES_QUEUE_COMMANDS，丢失了 FLAG_HANDLES_MEDIA_BUTTONS 和 FLAG_HANDLES_TRANSPORT_CONTROLS
+  // 卓易通需要 FLAG_HANDLES_TRANSPORT_CONTROLS 才会在下拉控制中心显示媒体控制卡片
   [
     path.join(rootPath, 'node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java'),
     'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);',
-    'session.setFlags(MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);\n        android.util.Log.i("LxMediaBrowser", "MetadataManager: storing session token");\n        MediaSessionTokenHolder.setSessionToken(session.getSessionToken());',
+    [
+      'session.setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS | MediaSessionCompat.FLAG_HANDLES_QUEUE_COMMANDS);',
+      '        // 设置 sessionActivity，让系统知道点击媒体控制卡片时应打开哪个 Activity',
+      '        {',
+      '            Context ctx = service.getApplicationContext();',
+      '            String pkg = ctx.getPackageName();',
+      '            Intent launchIntent = ctx.getPackageManager().getLaunchIntentForPackage(pkg);',
+      '            if (launchIntent == null) {',
+      '                launchIntent = new Intent();',
+      '                launchIntent.setPackage(pkg);',
+      '                launchIntent.addCategory(Intent.CATEGORY_LAUNCHER);',
+      '            }',
+      '            launchIntent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);',
+      '            int piFlags = Build.VERSION.SDK_INT >= 31 ? PendingIntent.FLAG_IMMUTABLE : PendingIntent.FLAG_CANCEL_CURRENT;',
+      '            session.setSessionActivity(PendingIntent.getActivity(ctx, 0, launchIntent, piFlags));',
+      '        }',
+      '        android.util.Log.i("LxMediaBrowser", "MetadataManager: session flags=7, storing token");',
+      '        MediaSessionTokenHolder.setSessionToken(session.getSessionToken());',
+    ].join('\n'),
   ],
 ]
 
