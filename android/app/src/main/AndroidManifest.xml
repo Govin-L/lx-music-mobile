@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <!-- Android 14+ 要求显式声明前台服务类型对应的权限 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
 
     <application
       android:name=".MainApplication"
@@ -91,10 +93,24 @@
         </intent-filter>
       </activity>
 
+      <!-- 覆盖 track-player 的 MusicService，补充 foregroundServiceType 声明 -->
+      <!-- Android 10+ 要求前台服务声明类型，缺少此声明会导致卓易通等环境无法识别媒体播放服务 -->
+      <service
+        android:name="com.guichaguri.trackplayer.service.MusicService"
+        android:enabled="true"
+        android:exported="true"
+        android:foregroundServiceType="mediaPlayback"
+        tools:replace="android:foregroundServiceType">
+        <intent-filter>
+          <action android:name="android.intent.action.MEDIA_BUTTON" />
+        </intent-filter>
+      </service>
+
       <!-- MediaBrowserService: 让系统（包括 HarmonyOS 卓易通）能发现音乐播放会话 -->
       <service
         android:name=".mediabrowser.LxMediaBrowserService"
-        android:exported="true">
+        android:exported="true"
+        android:foregroundServiceType="mediaPlayback">
         <intent-filter>
           <action android:name="android.media.browse.MediaBrowserService" />
         </intent-filter>

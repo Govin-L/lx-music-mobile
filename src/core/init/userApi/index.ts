@@ -3,8 +3,12 @@ import { log, setUserApiList, setUserApiStatus } from '@/core/userApi'
 import settingState from '@/store/setting/state'
 import BackgroundTimer from 'react-native-background-timer'
 import { fetchData } from './request'
-import { getUserApiList } from '@/utils/data'
+import { addUserApi, getUserApiList } from '@/utils/data'
 import { confirmDialog, openUrl, tipDialog } from '@/utils/tools'
+import { DEFAULT_USER_API_SCRIPT } from '@/config/defaultUserApi'
+import { storageDataPrefix } from '@/config/constant'
+import { getData, saveData } from '@/plugins/storage'
+import { setApiSource } from '@/core/apiSource'
 
 
 export default async(setting: LX.AppSetting) => {
@@ -252,5 +256,24 @@ export default async(setting: LX.AppSetting) => {
     }
   })
 
-  setUserApiList(await getUserApiList())
+  let apiList = await getUserApiList()
+
+  // 首次启动时自动导入内置默认音源（仅一次，不会在用户删除后重复导入）
+  if (DEFAULT_USER_API_SCRIPT && !await getData<boolean>(storageDataPrefix.defaultApiImported)) {
+    await saveData(storageDataPrefix.defaultApiImported, true)
+    if (apiList.length === 0) {
+      try {
+        const apiInfo = await addUserApi(DEFAULT_USER_API_SCRIPT)
+        apiList = await getUserApiList()
+        // 自动激活导入的音源
+        if (!setting['common.apiSource']) {
+          setApiSource(apiInfo.id)
+        }
+      } catch (e) {
+        console.error('Failed to add default user api:', e)
+      }
+    }
+  }
+
+  setUserApiList(apiList)
 }
