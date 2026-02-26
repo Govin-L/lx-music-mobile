@@ -14,20 +14,45 @@ jobs:
       - name: Setup Env
         uses: ./.github/actions/setup
 
-      - name: Generate debug keystore
+      - name: Verify dependencies patch
+        shell: bash
         run: |
-          keytool -genkeypair -v -storetype PKCS12 \
-            -keystore android/app/debug.keystore \
-            -alias androiddebugkey \
-            -keyalg RSA -keysize 2048 -validity 10000 \
-            -storepass android -keypass android \
-            -dname "CN=Android Debug,O=Android,C=US"
+          METADATA_FILE="node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MetadataManager.java"
+          HOLDER_FILE="node_modules/react-native-track-player/android/src/main/java/com/guichaguri/trackplayer/service/metadata/MediaSessionTokenHolder.java"
+
+          echo "=== Checking MediaSessionTokenHolder.java ==="
+          if [ -f "$HOLDER_FILE" ]; then
+            echo "✓ MediaSessionTokenHolder.java exists"
+          else
+            echo "✗ MediaSessionTokenHolder.java NOT found!" && exit 1
+          fi
+
+          echo "=== Checking MetadataManager.java patch ==="
+          if grep -q "FLAG_HANDLES_TRANSPORT_CONTROLS" "$METADATA_FILE"; then
+            echo "✓ FLAG_HANDLES_TRANSPORT_CONTROLS found"
+          else
+            echo "✗ FLAG_HANDLES_TRANSPORT_CONTROLS NOT found - patch failed!" && exit 1
+          fi
+
+          if grep -q "MediaSessionTokenHolder.setSessionToken" "$METADATA_FILE"; then
+            echo "✓ MediaSessionTokenHolder.setSessionToken found"
+          else
+            echo "✗ MediaSessionTokenHolder.setSessionToken NOT found - patch failed!" && exit 1
+          fi
+
+          if grep -q "setSessionActivity" "$METADATA_FILE"; then
+            echo "✓ setSessionActivity found"
+          else
+            echo "✗ setSessionActivity NOT found - patch failed!" && exit 1
+          fi
+
+          echo "=== All patches verified ✓ ==="
 
       - name: Build Debug APK
         shell: bash
         run: |
           cd android
-          ./gradlew assembleDebug
+          ./gradlew assembleDebug -PreactNativeArchitectures=arm64-v8a -PbundleForAllVariants=true --parallel --build-cache -x lint -x lintVitalAnalyzeDebug
 
       - name: Get package version
         run: |
@@ -39,9 +64,3 @@ jobs:
         with:
           name: debug-v${{ env.PACKAGE_VERSION }}-arm64-v8a
           path: android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-arm64-v8a.apk
-
-      - name: Upload Artifact universal
-        uses: actions/upload-artifact@v4
-        with:
-          name: debug-v${{ env.PACKAGE_VERSION }}-universal
-          path: android/app/build/outputs/apk/debug/lx-music-mobile-v${{ env.PACKAGE_VERSION }}-universal.apk
